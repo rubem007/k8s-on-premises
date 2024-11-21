@@ -1,0 +1,159 @@
+---
+- name: Disable swap
+  hosts: all
+  tasks:
+    - name: Disable Swap
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: ".*swap.*"
+        state: absent
+
+- name: Install & Configure ContainerD
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install modules kernel Linux
+      copy:
+        src: ./k8s.conf
+        dest: /etc/modules-load.d/k8s.conf
+        mode: "644"
+
+    - name: Add the overlay
+      modprobe:
+        name: overlay
+        state: present
+
+    - name: Add br_netfilter
+      modprobe:
+        name: br_netfilter
+        state: present
+
+    - name: Configure sysctl parameters
+      copy:
+        src: ./k8s-cri.conf
+        dest: /etc/sysctl.d/k8s.conf
+        mode: "644"
+
+    - name: Execute the sysctl command
+      command: "sysctl --system"
+
+    - name: Add APT key repository
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add the repository for install ContainerD
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+
+    - name: install ContainerD
+      apt:
+        name: containerd.io=1.6.12-1
+        update_cache: yes
+
+    - name: Create directory and config containerd
+      file:
+        path: /etc/containerd
+        state: directory
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Create the config file
+      shell: containerd config default > /etc/containerd/config.toml
+
+    - name: changing the containerd config
+      command: sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+
+    - name: Restart containerd
+      service:
+        name: containerd
+        state: restarted
+
+- name: Install kubeadm, kubelet and kubectl
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install packages
+      apt:
+        pkg:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gpg
+        state: present
+
+    - name: Add the key repository
+      apt_key:
+        url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+        state: present
+
+    - name: Add the repository
+      apt_repository:
+        repo: deb https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /
+        state: present
+
+    - name: Install kubeadm, kubelet and kubectl
+      apt:
+        pkg:
+          - kubeadm
+          - kubectl
+          - kubelet
+        state: present
+
+    - name: Hold Packages #Making sure they won't be updated automatically.
+      command: apt-mark hold kubelet kubeadm kubectl
+
+- name: Setup K8S
+  hosts: control_plane
+  become: yes
+  tasks:
+    - name: Kubeadm Reset
+      command: kubeadm reset -f
+
+    - name: Init command
+      command: >
+        kubeadm init
+        --control-plane-endpoint={{ ansible_host }}
+        --apiserver-advertise-address={{ ansible_default_ipv4.address }}
+        --apiserver-cert-extra-sans={{ ansible_host }},{{ ansible_default_ipv4.address }}
+
+    - name: Create directory .kube
+      file:
+        path: ~/.kube
+        state: directory
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Copy the kube config file
+      copy:
+        src: /etc/kubernetes/admin.conf
+        remote_src: yes # source esta na maquina remota
+        dest: ~/.kube/config
+        owner: root
+        group: root
+        mode: 0640
+
+    - name: applying calico (CNI)
+      command: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.0/manifests/calico.yaml
+
+    - name: Create Join Command
+      shell: kubeadm token create --print-join-command
+      register: print_join_command
+
+    - debug: msg="join command is {{ print_join_command.stdout }}"
+
+    - name: Add join command on fact
+      set_fact: join_command="{{ print_join_command.stdout }}"
+
+- name: Init K8S Worker Node
+  hosts: worker_node
+  become: yes
+  tasks:
+    - name: Kubeadm Reset
+      command: kubeadm reset -f
+
+    - name: Join the cluster. Use log to prevent joining twice
+      command: "{{ hostvars[groups['control_plane'][0]]['join_command'] }}"

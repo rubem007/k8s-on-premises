@@ -1,0 +1,97 @@
+____________________________________________________________
+GIT
+1ª Vez
+git init
+git add README.md
+git commit -m "add README.md"
+git branch -M main
+git remote add origin https://github.com/rubem007/gym-project.git
+git push -u origin main
+
+Outras vezes
+git add . ou git add {nome_arquivo}
+git commit -m "mensagem"
+git push -u origin main ou caso for na branch insira git push -u origin {nome_branch}
+
+Nova branch
+git checkout -b "nome_branch"
+git add -A
+git commit -m "Create auth feature and added insomnia requests"
+git push origin nome_branch
+
+Juntar a branch à main
+git checkout main
+git merge auth
+git push origin main
+
+Deletar uma branch local
+git branch -d {nome_branch} 
+
+git pull origin ci
+
+git branch --list
+git branch -d docker - elimina a branch localmente
+git push origin --delete docker - eliminar branch remota
+________________________________________________________________________________________________
+
+ssh-keygen -t rsa -b 2048
+
+terraform init
+terraform apply
+terraform apply -auto-approve — Apply changes without having to interactively type ‘yes’ to the plan.
+terraform fmt - formata o código
+terraform plan - mostra o plano de execução
+terraform destroy - elimina todos os resources
+terraform destroy -target=digitalocean_droplet.jenkins - elimina o resource específico
+
+Access EC2
+EC2 Control-plane:    ssh ubuntu@184.72.169.121
+EC2 Node1:            ssh ubuntu@18.212.78.34
+EC2 Node2:            ssh ubuntu@3.92.51.241
+
+Copy file from local host to remote host
+    scp ~/.ssh/id_rsa ubuntu@44.200.193.130:/home/ubuntu/.ssh/id_rsa
+
+Copy file from remote host to local host
+    ssh -i ~/.ssh/id_rsa ubuntu@184.72.169.121 "sudo cat /etc/kubernetes/admin.conf" > ~/admin.conf
+    ssh -i ~/.ssh/id_rsa ubuntu@34.201.161.102 "sudo cat /etc/kubernetes/admin.conf" > ~/admin.conf
+export KUBECONFIG=~/admin.conf
+
+sudo kubectl create deployment nginx --image nginx
+sudo kubectl expose deployment nginx --type NodePort --port 80
+sudo kubectl get svc
+
+kubectl config get-contexts
+
+18.212.78.34:30000
+3.92.51.241:30000
+
+________________________________________________________________________________________________
+Ansible
+
+Comandos
+ansible localhost -m ping 
+
+ansible all -i '3.239.118.82,' -m ping --private-key=~/.ssh/id_rsa -u root
+
+ansible all -i hosts --list-hosts - lista todos os hosts que serão utilizados
+
+ansible all -i hosts -m ping - ping todas as máquinas
+ansible control_plane -i hosts -m ping - ping apenas nas máquinas que pertencem ao grupo ping
+
+ansible all -i hosts -m ping -e "ansible_facts_gathering=false" - ping todas as máquinas
+
+ansible all -i hosts -m reboot - reinicia todas as maquinas
+ansible ping -i hosts -m reboot - reinicia as maquinas que estão no grupo ping
+
+ansible-playbook -i hosts playbook.yaml - executa o arquivo yaml playbook
+
+ansible-playbook -i hosts playbook.yaml --ask-become-pass - executa o arquivo yaml playbook. Usa-se quando o remote_user não é o root
+
+
+ansible-playbook -i hosts install_jenkins.yml install_docker.yml install_kubectl.yml
+ansible-playbook -i hosts install_kubectl.yml
+
+Ansible ad hoc
+ssh-agent bash
+ssh-add ~/.ssh/id_rsa
